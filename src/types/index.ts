@@ -1,19 +1,19 @@
-// Tipos de usuário
+export type TipoUsuario = 'ALUNO' | 'PROFESSOR' | 'ADMINISTRADOR';
+
 export interface Usuario {
-  id: string;
+  id: number;
   nome: string;
   email: string;
-  tipo: 'aluno' | 'professor' | 'admin';
-  createdAt?: string;
-  updatedAt?: string;
+  tipoUsuario: TipoUsuario;
+  anexo: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Tipos de autenticação
 export interface LoginResponse {
   token: string;
-  tipo: 'aluno' | 'professor' | 'admin';
+  tipo: string;
   expiresIn: number;
-  user: Usuario;
 }
 
 export interface RegisterPayload {
@@ -21,109 +21,106 @@ export interface RegisterPayload {
   email: string;
   senha: string;
   anexo?: string | null;
-  tipoUsuario?: 'aluno' | 'professor';
+  tipoUsuario?: TipoUsuario;
 }
 
-// Tipos de curso
 export interface Curso {
-  id: string;
+  id: number;
   titulo: string;
   descricao: string;
-  imagemUrl?: string;
-  professorId?: string;
-  professor?: Usuario;
-  createdAt: string;
-  updatedAt: string;
+  imagemUrl?: string | null;
+  professor: Usuario;
+  dataCriacao: Date;
 }
 
 export interface CursoPayload {
   titulo: string;
   descricao: string;
-  imagemUrl?: string;
-  professorId?: string;
+  imagemUrl?: string | null;
+  professorId?: number;
 }
 
-// Tipos de conteúdo
 export interface Conteudo {
-  id: string;
-  cursoId: string;
+  id: number;
+  cursoId: number;
   titulo: string;
   descricao: string;
-  formatoOriginal: 'pdf' | 'ppt' | 'video' | 'text' | 'other';
-  conteudo: string;
-  arquivoNome?: string;
-  arquivoTipo?: string;
-  arquivoUrl?: string;
-  createdAt: string;
-  updatedAt: string;
+  formatoOriginal: string;
+  conteudoAdaptado: string | null;
+  conteudoAdaptadoTipo: string | null;
+  dataPublicacao: Date;
+  arquivoNome?: string | null;
+  arquivoTipo?: string | null;
+  arquivoUrl?: string | null;
 }
 
 export interface ConteudoPayload {
+  cursoId: number;
   titulo: string;
   descricao: string;
-  formatoOriginal: 'pdf' | 'ppt' | 'video' | 'text' | 'other';
-  conteudo: string;
-  arquivoNome?: string;
-  arquivoTipo?: string;
-  arquivoUrl?: string;
+  formatoOriginal?: string | null;
+  conteudo?: string | null;
+  arquivoNome?: string | null;
+  arquivoTipo?: string | null;
+  arquivoUrl?: string | null;
 }
 
-// Tipos de avaliação
 export interface Avaliacao {
-  id: string;
-  cursoId: string;
+  id: number;
+  cursoId: number;
   tipoAvaliacao: string;
   notaMaxima: number;
-  dataLimite: string;
-  createdAt: string;
-  updatedAt: string;
+  dataLimite: Date;
 }
 
 export interface AvaliacaoPayload {
+  cursoId: number;
   tipoAvaliacao: string;
   notaMaxima: number;
-  dataLimite: string; // ISO 8601
+  dataLimite: string;
 }
 
-// Tipos de resultado
 export interface Resultado {
-  id: string;
-  avaliacaoId: string;
-  alunoId: string;
+  id: number;
+  avaliacaoId: number;
+  aluno: Usuario;
   notaObtida: number;
-  aluno?: Usuario;
-  avaliacao?: Avaliacao;
-  createdAt: string;
-  updatedAt: string;
+  notaMaxima: number;
+  tipoAvaliacao: string;
+  cursoId: number;
+  cursoTitulo: string;
 }
 
 export interface ResultadoPayload {
-  alunoId: string;
+  alunoId: number;
   notaObtida: number;
 }
 
-// Tipos de dashboard
+export interface ProfessorNotasResponse {
+  cursoId: number;
+  cursoTitulo: string;
+  alunos: Array<{
+    alunoId: number;
+    alunoNome: string;
+    alunoEmail: string;
+    avaliacoes: Array<{
+      avaliacaoId: number;
+      tipoAvaliacao: string;
+      notaObtida: number | null;
+      notaMaxima: number;
+    }>;
+  }>;
+}
+
 export interface DashboardResumo {
   cursosAtivos: number;
-  avaliacoesPendentes: number;
-  totalAlunos: number;
-  mediaGeral: number;
+  avaliacoesPublicadas: number;
+  alunosMatriculados: number;
+  mediaNotasGerais: number;
 }
 
-// Tipos de matrícula
-export interface Matricula {
-  id: string;
-  cursoId: string;
-  alunoId: string;
-  dataMatricula: string;
-  curso?: Curso;
-  aluno?: Usuario;
-}
-
-// Tipos de erro da API
 export interface ApiError {
   message: string;
   status: number;
   errors?: Record<string, string[]>;
 }
-

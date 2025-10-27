@@ -2,31 +2,62 @@ import type {
   Curso,
   CursoPayload,
   Conteudo,
-  ConteudoPayload,
   Avaliacao,
   AvaliacaoPayload,
   Resultado,
   ResultadoPayload,
   DashboardResumo,
   LoginResponse,
-  RegisterPayload,
+  Usuario,
+  ProfessorNotasResponse,
   ApiError,
 } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
 
-// Helper para converter datas ISO 8601 para Date
-const parseDates = <T extends Record<string, any>>(obj: T): T => {
-  const dateFields = ['createdAt', 'updatedAt', 'dataLimite', 'dataMatricula'];
-  const parsed = { ...obj };
-  
-  dateFields.forEach(field => {
-    if (parsed[field] && typeof parsed[field] === 'string') {
-      parsed[field] = new Date(parsed[field] as string) as any;
+// Helper para converter datas ISO 8601 em Date
+const DATE_FIELDS = new Set([
+  'createdAt',
+  'updatedAt',
+  'dataLimite',
+  'dataMatricula',
+  'dataCriacao',
+  'dataPublicacao',
+]);
+
+const parseDates = <T>(payload: T): T => {
+  const convert = (value: unknown): unknown => {
+    if (value === null || value === undefined) {
+      return value;
     }
-  });
-  
-  return parsed;
+
+    if (Array.isArray(value)) {
+      return value.map(convert);
+    }
+
+    if (value instanceof Date) {
+      return value;
+    }
+
+    if (typeof value === 'object') {
+      return Object.entries(value as Record<string, unknown>).reduce<Record<string, unknown>>(
+        (acc, [key, val]) => {
+          if (DATE_FIELDS.has(key) && typeof val === 'string') {
+            acc[key] = new Date(val);
+            return acc;
+          }
+
+          acc[key] = convert(val);
+          return acc;
+        },
+        {},
+      );
+    }
+
+    return value;
+  };
+
+  return convert(payload) as T;
 };
 
 // Client HTTP centralizado com interceptor
@@ -37,45 +68,72 @@ class ApiClient {
     this.baseURL = baseURL;
   }
 
-  private getHeaders(): HeadersInit {
+  private getHeaders(options?: { isForm?: boolean }): HeadersInit {
     const token = localStorage.getItem('token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    };
+    const headers: Record<string, string> = {};
+    if (!options?.isForm) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    return headers;
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
     // Tratamento de erros 401/403 - redireciona para login
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
-      throw new Error('Sessão expirada. Faça login novamente.');
+      throw new Error('Sessao expirada. Faca login novamente.');
+    }
+    if (response.status === 403) {
+      throw new Error('Voce nao possui permissao para realizar esta operacao.');
     }
 
     if (!response.ok) {
-      let errorMessage = 'Erro na requisição';
-      
+      let errorMessage = 'Erro na requisicao';
+
       try {
         const errorData: ApiError = await response.json();
         errorMessage = errorData.message || errorMessage;
-        
-        // Tratamento de erros de validação (422)
+
+        // Tratamento de erros de validacao (422)
         if (response.status === 422 && errorData.errors) {
           const validationErrors = Object.values(errorData.errors).flat().join(', ');
-          errorMessage = `Erro de validação: ${validationErrors}`;
+          errorMessage = `Erro de validacao: ${validationErrors}`;
         }
       } catch {
-        // Se não conseguir parsear o JSON, usa mensagem padrão
+        // Se nao conseguir parsear o JSON, usa mensagem padrao
         errorMessage = `Erro ${response.status}: ${response.statusText}`;
       }
 
       throw new Error(errorMessage);
     }
 
-    const data = await response.json();
-    return parseDates(data);
+    if (response.status === 204 || response.status === 205) {
+      return undefined as T;
+    }
+
+    const text = await response.text();
+
+    if (!text) {
+      return undefined as T;
+    }
+
+    const contentType = response.headers.get('content-type');
+
+    if (contentType && !contentType.toLowerCase().includes('application/json')) {
+      return text as unknown as T;
+    }
+
+    try {
+      const data = JSON.parse(text);
+      return parseDates(data);
+    } catch {
+      throw new Error('Erro ao interpretar resposta do servidor.');
+    }
   }
 
   async get<T>(endpoint: string): Promise<T> {
@@ -87,10 +145,13 @@ class ApiClient {
   }
 
   async post<T>(endpoint: string, body?: any): Promise<T> {
+    const isForm = body instanceof FormData;
     const response = await fetch(`${this.baseURL}${endpoint}`, {
       method: 'POST',
-      headers: this.getHeaders(),
-      ...(body && { body: JSON.stringify(body) }),
+      headers: this.getHeaders({ isForm }),
+      ...(body !== undefined && {
+        body: isForm ? body : JSON.stringify(body),
+      }),
     });
     return this.handleResponse<T>(response);
   }
@@ -115,14 +176,18 @@ class ApiClient {
 
 const client = new ApiClient(API_BASE_URL);
 
-// API de Autenticação
+// API de Autenticacao
 export const authApi = {
   async login(email: string, senha: string): Promise<LoginResponse> {
     return client.post<LoginResponse>('/api/auth/login', { email, senha });
   },
 
-  async register(data: RegisterPayload): Promise<LoginResponse> {
-    return client.post<LoginResponse>('/api/auth/register', data);
+  async register(data: FormData): Promise<Usuario> {
+    return client.post<Usuario>('/api/auth/register', data);
+  },
+
+  async me(): Promise<Usuario> {
+    return client.get<Usuario>('/api/auth/me');
   },
 };
 
@@ -149,7 +214,7 @@ export const cursosApi = {
   },
 };
 
-// API de Conteúdos
+// API de Conteudos
 export const conteudosApi = {
   async getByCurso(cursoId: string): Promise<Conteudo[]> {
     return client.get<Conteudo[]>(`/api/cursos/${cursoId}/conteudos`);
@@ -159,12 +224,12 @@ export const conteudosApi = {
     return client.get<Conteudo>(`/api/cursos/${cursoId}/conteudos/${conteudoId}`);
   },
 
-  async create(cursoId: string, data: ConteudoPayload): Promise<Conteudo> {
+  async create(cursoId: string, data: FormData): Promise<Conteudo> {
     return client.post<Conteudo>(`/api/cursos/${cursoId}/conteudos`, data);
   },
 };
 
-// API de Avaliações
+// API de Avaliacoes
 export const avaliacoesApi = {
   async getByCurso(cursoId: string): Promise<Avaliacao[]> {
     return client.get<Avaliacao[]>(`/api/cursos/${cursoId}/avaliacoes`);
@@ -182,9 +247,9 @@ export const resultadosApi = {
   },
 
   async lancarNota(avaliacaoId: string, data: ResultadoPayload): Promise<Resultado> {
-    // Validação: notaObtida deve estar presente
+    // Validacao: notaObtida deve estar presente
     if (!data.notaObtida && data.notaObtida !== 0) {
-      throw new Error('A nota obtida é obrigatória');
+      throw new Error('A nota obtida e obrigatoria');
     }
     return client.post<Resultado>(`/api/resultados/avaliacoes/${avaliacaoId}`, data);
   },
@@ -193,8 +258,8 @@ export const resultadosApi = {
     return client.get<Resultado[]>(`/api/resultados/avaliacoes/${avaliacaoId}`);
   },
 
-  async getByCurso(cursoId: string): Promise<Resultado[]> {
-    return client.get<Resultado[]>(`/api/resultados/cursos/${cursoId}`);
+  async getByCurso(cursoId: string): Promise<ProfessorNotasResponse> {
+    return client.get<ProfessorNotasResponse>(`/api/resultados/cursos/${cursoId}`);
   },
 };
 
@@ -205,7 +270,7 @@ export const dashboardApi = {
   },
 };
 
-// Exportação legada para compatibilidade (será removida gradualmente)
+// Exportacao legada para compatibilidade (sera removida gradualmente)
 export const api = {
   getCursos: cursosApi.getAll,
   getCurso: cursosApi.getById,
@@ -218,7 +283,7 @@ export const api = {
   getAvaliacoes: avaliacoesApi.getByCurso,
   createAvaliacao: avaliacoesApi.create,
   getMinhasNotas: resultadosApi.getMinhasNotas,
-  lancarNota: (avaliacaoId: string, alunoId: string, notaObtida: number) =>
+  lancarNota: (avaliacaoId: string, alunoId: number, notaObtida: number) =>
     resultadosApi.lancarNota(avaliacaoId, { alunoId, notaObtida }),
   getResultadosAvaliacao: resultadosApi.getByAvaliacao,
   getResultadosCurso: resultadosApi.getByCurso,
