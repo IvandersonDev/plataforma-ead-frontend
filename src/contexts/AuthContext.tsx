@@ -21,8 +21,8 @@ interface RegisterData {
   nome: string;
   email: string;
   senha: string;
-  tipo: 'aluno' | 'professor';
-  anexo?: File;
+  tipo?: 'aluno' | 'professor';
+  anexo?: string | null; // URL ou descrição do comprovante (string)
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, senha: string) => {
-    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
     const response = await fetch(`${apiUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -64,21 +64,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const register = async (registerData: RegisterData) => {
-    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-    const formData = new FormData();
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
     
-    formData.append('nome', registerData.nome);
-    formData.append('email', registerData.email);
-    formData.append('senha', registerData.senha);
-    formData.append('tipo', registerData.tipo);
-    
-    if (registerData.anexo) {
-      formData.append('anexo', registerData.anexo);
-    }
+    // Monta o payload conforme especificação:
+    // - anexo presente → professor
+    // - anexo ausente → aluno
+    const payload = {
+      nome: registerData.nome,
+      email: registerData.email,
+      senha: registerData.senha,
+      anexo: registerData.anexo || null,
+      // tipoUsuario é opcional, backend decide pelo anexo
+      ...(registerData.tipo && { tipoUsuario: registerData.tipo }),
+    };
 
     const response = await fetch(`${apiUrl}/api/auth/register`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {

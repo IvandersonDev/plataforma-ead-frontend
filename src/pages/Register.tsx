@@ -7,14 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { GraduationCap, Upload } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
 
 export default function Register() {
   const [tipo, setTipo] = useState<'aluno' | 'professor'>('aluno');
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [anexo, setAnexo] = useState<File | null>(null);
+  const [anexo, setAnexo] = useState<string>(''); // URL ou descrição do comprovante
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -32,14 +32,20 @@ export default function Register() {
       return;
     }
 
-    if (tipo === 'professor' && !anexo) {
-      toast.error('Professores devem enviar um documento');
+    if (tipo === 'professor' && !anexo.trim()) {
+      toast.error('Professores devem fornecer URL ou descrição do comprovante');
       return;
     }
 
     setIsLoading(true);
     try {
-      await register({ nome, email, senha, tipo, anexo: anexo || undefined });
+      await register({ 
+        nome, 
+        email, 
+        senha, 
+        tipo, 
+        anexo: anexo.trim() || null 
+      });
       toast.success('Cadastro realizado com sucesso!');
       navigate('/dashboard');
     } catch (error: any) {
@@ -104,22 +110,17 @@ export default function Register() {
               </div>
 
               <TabsContent value="professor" className="mt-0 space-y-2">
-                <Label htmlFor="anexo">Documento (Obrigatório para professores)</Label>
-                <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors">
-                  <input
-                    id="anexo"
-                    type="file"
-                    className="hidden"
-                    onChange={(e) => setAnexo(e.target.files?.[0] || null)}
-                    accept=".pdf,.doc,.docx"
-                  />
-                  <label htmlFor="anexo" className="cursor-pointer flex flex-col items-center gap-2">
-                    <Upload className="h-8 w-8 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      {anexo ? anexo.name : 'Clique para enviar documento'}
-                    </span>
-                  </label>
-                </div>
+                <Label htmlFor="anexo">URL ou Descrição do Comprovante (Obrigatório para professores)</Label>
+                <Input
+                  id="anexo"
+                  type="text"
+                  placeholder="Ex: https://drive.google.com/... ou descrição do documento"
+                  value={anexo}
+                  onChange={(e) => setAnexo(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Informe a URL do documento ou uma breve descrição do seu comprovante de formação/experiência.
+                </p>
               </TabsContent>
 
               <Button type="submit" className="w-full" disabled={isLoading}>

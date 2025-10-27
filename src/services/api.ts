@@ -1,147 +1,226 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+import type {
+  Curso,
+  CursoPayload,
+  Conteudo,
+  ConteudoPayload,
+  Avaliacao,
+  AvaliacaoPayload,
+  Resultado,
+  ResultadoPayload,
+  DashboardResumo,
+  LoginResponse,
+  RegisterPayload,
+  ApiError,
+} from '@/types';
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+
+// Helper para converter datas ISO 8601 para Date
+const parseDates = <T extends Record<string, any>>(obj: T): T => {
+  const dateFields = ['createdAt', 'updatedAt', 'dataLimite', 'dataMatricula'];
+  const parsed = { ...obj };
+  
+  dateFields.forEach(field => {
+    if (parsed[field] && typeof parsed[field] === 'string') {
+      parsed[field] = new Date(parsed[field] as string) as any;
+    }
+  });
+  
+  return parsed;
 };
 
-export const api = {
-  // Cursos
-  async getCursos() {
-    const response = await fetch(`${API_BASE_URL}/api/cursos`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Erro ao buscar cursos');
-    return response.json();
-  },
+// Client HTTP centralizado com interceptor
+class ApiClient {
+  private baseURL: string;
 
-  async getCurso(id: string) {
-    const response = await fetch(`${API_BASE_URL}/api/cursos/${id}`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Erro ao buscar curso');
-    return response.json();
-  },
+  constructor(baseURL: string) {
+    this.baseURL = baseURL;
+  }
 
-  async createCurso(curso: any) {
-    const response = await fetch(`${API_BASE_URL}/api/cursos`, {
+  private getHeaders(): HeadersInit {
+    const token = localStorage.getItem('token');
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+    };
+  }
+
+  private async handleResponse<T>(response: Response): Promise<T> {
+    // Tratamento de erros 401/403 - redireciona para login
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
+    if (!response.ok) {
+      let errorMessage = 'Erro na requisição';
+      
+      try {
+        const errorData: ApiError = await response.json();
+        errorMessage = errorData.message || errorMessage;
+        
+        // Tratamento de erros de validação (422)
+        if (response.status === 422 && errorData.errors) {
+          const validationErrors = Object.values(errorData.errors).flat().join(', ');
+          errorMessage = `Erro de validação: ${validationErrors}`;
+        }
+      } catch {
+        // Se não conseguir parsear o JSON, usa mensagem padrão
+        errorMessage = `Erro ${response.status}: ${response.statusText}`;
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    return parseDates(data);
+  }
+
+  async get<T>(endpoint: string): Promise<T> {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<T>(response);
+  }
+
+  async post<T>(endpoint: string, body?: any): Promise<T> {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(curso),
+      headers: this.getHeaders(),
+      ...(body && { body: JSON.stringify(body) }),
     });
-    if (!response.ok) throw new Error('Erro ao criar curso');
-    return response.json();
-  },
+    return this.handleResponse<T>(response);
+  }
 
-  async updateCurso(id: string, curso: any) {
-    const response = await fetch(`${API_BASE_URL}/api/cursos/${id}`, {
+  async put<T>(endpoint: string, body: any): Promise<T> {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
       method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(curso),
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
     });
-    if (!response.ok) throw new Error('Erro ao atualizar curso');
-    return response.json();
+    return this.handleResponse<T>(response);
+  }
+
+  async delete<T>(endpoint: string): Promise<T> {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<T>(response);
+  }
+}
+
+const client = new ApiClient(API_BASE_URL);
+
+// API de Autenticação
+export const authApi = {
+  async login(email: string, senha: string): Promise<LoginResponse> {
+    return client.post<LoginResponse>('/api/auth/login', { email, senha });
   },
 
-  async matricular(cursoId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/cursos/${cursoId}/matriculas`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Erro ao matricular');
-    return response.json();
+  async register(data: RegisterPayload): Promise<LoginResponse> {
+    return client.post<LoginResponse>('/api/auth/register', data);
+  },
+};
+
+// API de Cursos
+export const cursosApi = {
+  async getAll(): Promise<Curso[]> {
+    return client.get<Curso[]>('/api/cursos');
   },
 
-  // Conteúdos
-  async getConteudos(cursoId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/cursos/${cursoId}/conteudos`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Erro ao buscar conteúdos');
-    return response.json();
+  async getById(id: string): Promise<Curso> {
+    return client.get<Curso>(`/api/cursos/${id}`);
   },
 
-  async getConteudo(cursoId: string, conteudoId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/cursos/${cursoId}/conteudos/${conteudoId}`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Erro ao buscar conteúdo');
-    return response.json();
+  async create(data: CursoPayload): Promise<Curso> {
+    return client.post<Curso>('/api/cursos', data);
   },
 
-  async createConteudo(cursoId: string, conteudo: any) {
-    const response = await fetch(`${API_BASE_URL}/api/cursos/${cursoId}/conteudos`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(conteudo),
-    });
-    if (!response.ok) throw new Error('Erro ao criar conteúdo');
-    return response.json();
+  async update(id: string, data: CursoPayload): Promise<Curso> {
+    return client.put<Curso>(`/api/cursos/${id}`, data);
   },
 
-  // Avaliações
-  async getAvaliacoes(cursoId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/cursos/${cursoId}/avaliacoes`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Erro ao buscar avaliações');
-    return response.json();
+  async matricular(cursoId: string): Promise<void> {
+    return client.post<void>(`/api/cursos/${cursoId}/matriculas`);
+  },
+};
+
+// API de Conteúdos
+export const conteudosApi = {
+  async getByCurso(cursoId: string): Promise<Conteudo[]> {
+    return client.get<Conteudo[]>(`/api/cursos/${cursoId}/conteudos`);
   },
 
-  async createAvaliacao(cursoId: string, avaliacao: any) {
-    const response = await fetch(`${API_BASE_URL}/api/cursos/${cursoId}/avaliacoes`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(avaliacao),
-    });
-    if (!response.ok) throw new Error('Erro ao criar avaliação');
-    return response.json();
+  async getById(cursoId: string, conteudoId: string): Promise<Conteudo> {
+    return client.get<Conteudo>(`/api/cursos/${cursoId}/conteudos/${conteudoId}`);
   },
 
-  // Resultados
-  async getMinhasNotas() {
-    const response = await fetch(`${API_BASE_URL}/api/resultados/minhas-notas`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Erro ao buscar notas');
-    return response.json();
+  async create(cursoId: string, data: ConteudoPayload): Promise<Conteudo> {
+    return client.post<Conteudo>(`/api/cursos/${cursoId}/conteudos`, data);
+  },
+};
+
+// API de Avaliações
+export const avaliacoesApi = {
+  async getByCurso(cursoId: string): Promise<Avaliacao[]> {
+    return client.get<Avaliacao[]>(`/api/cursos/${cursoId}/avaliacoes`);
   },
 
-  async lancarNota(avaliacaoId: string, alunoId: string, nota: number) {
-    const response = await fetch(`${API_BASE_URL}/api/resultados/avaliacoes/${avaliacaoId}`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ alunoId, nota }),
-    });
-    if (!response.ok) throw new Error('Erro ao lançar nota');
-    return response.json();
+  async create(cursoId: string, data: AvaliacaoPayload): Promise<Avaliacao> {
+    return client.post<Avaliacao>(`/api/cursos/${cursoId}/avaliacoes`, data);
+  },
+};
+
+// API de Resultados
+export const resultadosApi = {
+  async getMinhasNotas(): Promise<Resultado[]> {
+    return client.get<Resultado[]>('/api/resultados/minhas-notas');
   },
 
-  async getResultadosAvaliacao(avaliacaoId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/resultados/avaliacoes/${avaliacaoId}`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Erro ao buscar resultados');
-    return response.json();
+  async lancarNota(avaliacaoId: string, data: ResultadoPayload): Promise<Resultado> {
+    // Validação: notaObtida deve estar presente
+    if (!data.notaObtida && data.notaObtida !== 0) {
+      throw new Error('A nota obtida é obrigatória');
+    }
+    return client.post<Resultado>(`/api/resultados/avaliacoes/${avaliacaoId}`, data);
   },
 
-  async getResultadosCurso(cursoId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/resultados/cursos/${cursoId}`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Erro ao buscar resultados do curso');
-    return response.json();
+  async getByAvaliacao(avaliacaoId: string): Promise<Resultado[]> {
+    return client.get<Resultado[]>(`/api/resultados/avaliacoes/${avaliacaoId}`);
   },
 
-  // Dashboard
-  async getDashboardResumo() {
-    const response = await fetch(`${API_BASE_URL}/api/dashboard/resumo`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Erro ao buscar resumo');
-    return response.json();
+  async getByCurso(cursoId: string): Promise<Resultado[]> {
+    return client.get<Resultado[]>(`/api/resultados/cursos/${cursoId}`);
   },
+};
+
+// API de Dashboard
+export const dashboardApi = {
+  async getResumo(): Promise<DashboardResumo> {
+    return client.get<DashboardResumo>('/api/dashboard/resumo');
+  },
+};
+
+// Exportação legada para compatibilidade (será removida gradualmente)
+export const api = {
+  getCursos: cursosApi.getAll,
+  getCurso: cursosApi.getById,
+  createCurso: cursosApi.create,
+  updateCurso: cursosApi.update,
+  matricular: cursosApi.matricular,
+  getConteudos: conteudosApi.getByCurso,
+  getConteudo: conteudosApi.getById,
+  createConteudo: conteudosApi.create,
+  getAvaliacoes: avaliacoesApi.getByCurso,
+  createAvaliacao: avaliacoesApi.create,
+  getMinhasNotas: resultadosApi.getMinhasNotas,
+  lancarNota: (avaliacaoId: string, alunoId: string, notaObtida: number) =>
+    resultadosApi.lancarNota(avaliacaoId, { alunoId, notaObtida }),
+  getResultadosAvaliacao: resultadosApi.getByAvaliacao,
+  getResultadosCurso: resultadosApi.getByCurso,
+  getDashboardResumo: dashboardApi.getResumo,
 };
