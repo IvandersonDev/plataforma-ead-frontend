@@ -6,45 +6,48 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, X } from 'lucide-react';
 
 export default function Register() {
   const [tipo, setTipo] = useState<'aluno' | 'professor'>('aluno');
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [anexo, setAnexo] = useState<string>(''); // URL ou descrição do comprovante
+  const [anexoTexto, setAnexoTexto] = useState('');
+  const [anexoArquivo, setAnexoArquivo] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!nome || !email || !senha) {
-      toast.error('Preencha todos os campos obrigatórios');
+      toast.error('Preencha todos os campos obrigatorios');
       return;
     }
 
     if (senha.length < 6) {
-      toast.error('A senha deve ter no mínimo 6 caracteres');
+      toast.error('A senha deve ter no minimo 6 caracteres');
       return;
     }
 
-    if (tipo === 'professor' && !anexo.trim()) {
-      toast.error('Professores devem fornecer URL ou descrição do comprovante');
+    if (tipo === 'professor' && !anexoArquivo && !anexoTexto.trim()) {
+      toast.error('Professores devem anexar o comprovante (PDF) ou informar URL/descricao.');
       return;
     }
 
     setIsLoading(true);
     try {
-      await register({ 
-        nome, 
-        email, 
-        senha, 
-        tipo, 
-        anexo: anexo.trim() || null 
+      await register({
+        nome,
+        email,
+        senha,
+        tipo,
+        anexo: anexoTexto.trim() || null,
+        anexoFile: anexoArquivo,
       });
       toast.success('Cadastro realizado com sucesso!');
       navigate('/dashboard');
@@ -74,7 +77,7 @@ export default function Register() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="nome">Nome Completo</Label>
+                <Label htmlFor="nome">Nome completo</Label>
                 <Input
                   id="nome"
                   type="text"
@@ -102,25 +105,60 @@ export default function Register() {
                 <Input
                   id="senha"
                   type="password"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Minimo 6 caracteres"
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                   required
                 />
               </div>
 
-              <TabsContent value="professor" className="mt-0 space-y-2">
-                <Label htmlFor="anexo">URL ou Descrição do Comprovante (Obrigatório para professores)</Label>
-                <Input
-                  id="anexo"
-                  type="text"
-                  placeholder="Ex: https://drive.google.com/... ou descrição do documento"
-                  value={anexo}
-                  onChange={(e) => setAnexo(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Informe a URL do documento ou uma breve descrição do seu comprovante de formação/experiência.
-                </p>
+              <TabsContent value="professor" className="mt-0 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="arquivoComprovante">Comprovante em PDF</Label>
+                  <Input
+                    id="arquivoComprovante"
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      if (file && file.type !== 'application/pdf') {
+                        toast.error('Envie apenas arquivos PDF.');
+                        event.target.value = '';
+                        setAnexoArquivo(null);
+                        return;
+                      }
+                      setAnexoArquivo(file);
+                    }}
+                  />
+                  {anexoArquivo && (
+                    <div className="flex items-center justify-between rounded bg-muted px-3 py-2 text-xs">
+                      <span>{anexoArquivo.name}</span>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => setAnexoArquivo(null)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">Aceitamos apenas arquivos PDF.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="anexoTexto">URL ou descricao do comprovante</Label>
+                  <Textarea
+                    id="anexoTexto"
+                    placeholder="Ex: https://drive.google.com/... ou uma breve descricao do documento"
+                    value={anexoTexto}
+                    onChange={(e) => setAnexoTexto(e.target.value)}
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Informe a URL do documento ou descreva sua experiencia. Caso tenha anexado o PDF, este campo e
+                    opcional.
+                  </p>
+                </div>
               </TabsContent>
 
               <Button type="submit" className="w-full" disabled={isLoading}>
@@ -130,7 +168,7 @@ export default function Register() {
           </Tabs>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Já tem uma conta? </span>
+            <span className="text-muted-foreground">Ja tem uma conta? </span>
             <Link to="/login" className="text-primary hover:underline">
               Fazer login
             </Link>

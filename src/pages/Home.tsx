@@ -6,13 +6,7 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/services/api';
 import { BookOpen, Users, Award } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface Curso {
-  id: string;
-  titulo: string;
-  descricao: string;
-  cargaHoraria: number;
-}
+import type { Curso } from '@/types';
 
 export default function Home() {
   const [cursos, setCursos] = useState<Curso[]>([]);
@@ -116,7 +110,8 @@ export default function Home() {
                   id={curso.id}
                   titulo={curso.titulo}
                   descricao={curso.descricao}
-                  cargaHoraria={curso.cargaHoraria}
+                  professorNome={curso.professor?.nome}
+                  dataCriacao={curso.dataCriacao}
                   onSelect={(id) => navigate(`/curso/${id}`)}
                 />
               ))}
