@@ -1,19 +1,35 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, Users, BookOpen } from 'lucide-react';
+import { Calendar, User, BookOpen } from 'lucide-react';
 
 interface CourseCardProps {
-  id: string;
+  id: number;
   titulo: string;
   descricao: string;
-  cargaHoraria?: number;
-  totalAlunos?: number;
-  onSelect: (id: string) => void;
+  professorNome?: string;
+  dataCriacao?: Date;
+  onSelect: (id: number) => void;
 }
 
-export const CourseCard = ({ id, titulo, descricao, cargaHoraria, totalAlunos, onSelect }: CourseCardProps) => {
+export const CourseCard = ({
+  id,
+  titulo,
+  descricao,
+  professorNome,
+  dataCriacao,
+  onSelect,
+}: CourseCardProps) => {
+  const dataCriacaoLabel = dataCriacao
+    ? dataCriacao.toLocaleDateString()
+    : undefined;
+
+  const handleClick = () => onSelect(id);
+
   return (
-    <Card className="h-full flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer" onClick={() => onSelect(id)}>
+    <Card
+      className="h-full flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer"
+      onClick={handleClick}
+    >
       <CardHeader>
         <div className="w-full h-40 bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg mb-4 flex items-center justify-center">
           <BookOpen className="h-16 w-16 text-primary" />
@@ -23,20 +39,20 @@ export const CourseCard = ({ id, titulo, descricao, cargaHoraria, totalAlunos, o
       </CardHeader>
       <CardContent className="mt-auto">
         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-          {cargaHoraria && (
-            <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              <span>{cargaHoraria}h</span>
+          {professorNome && (
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              <span>{professorNome}</span>
             </div>
           )}
-          {totalAlunos !== undefined && (
-            <div className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              <span>{totalAlunos} alunos</span>
+          {dataCriacaoLabel && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span>{dataCriacaoLabel}</span>
             </div>
           )}
         </div>
-        <Button className="w-full" onClick={() => onSelect(id)}>
+        <Button className="w-full" onClick={handleClick}>
           Ver detalhes
         </Button>
       </CardContent>

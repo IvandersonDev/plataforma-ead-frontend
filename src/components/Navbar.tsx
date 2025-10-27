@@ -31,8 +31,18 @@ export const Navbar = () => {
                   Dashboard
                 </Button>
               </Link>
+              {user?.tipo === 'aluno' && (
+                <Link to="/minhas-notas">
+                  <Button variant="ghost" size="sm">Minhas notas</Button>
+                </Link>
+              )}
+              {(user?.tipo === 'professor' || user?.tipo === 'admin') && (
+                <Link to="/cursos/novo">
+                  <Button variant="ghost" size="sm">Novo curso</Button>
+                </Link>
+              )}
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Olá,</span>
+                <span className="text-muted-foreground">Ola,</span>
                 <span className="font-medium">{user?.nome}</span>
               </div>
               <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">

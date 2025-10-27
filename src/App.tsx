@@ -10,6 +10,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import CourseDetail from "./pages/CourseDetail";
+import CourseCreate from "./pages/CourseCreate";
+import CourseGrades from "./pages/CourseGrades";
+import MinhasNotas from "./pages/MinhasNotas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +43,30 @@ const App = () => (
                   <CourseDetail />
                 </ProtectedRoute>
               } 
+            />
+            <Route
+              path="/curso/:id/notas"
+              element={
+                <ProtectedRoute allowedTypes={['professor', 'admin']}>
+                  <CourseGrades />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cursos/novo"
+              element={
+                <ProtectedRoute allowedTypes={['professor', 'admin']}>
+                  <CourseCreate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/minhas-notas"
+              element={
+                <ProtectedRoute allowedTypes={['aluno']}>
+                  <MinhasNotas />
+                </ProtectedRoute>
+              }
             />
             <Route path="*" element={<NotFound />} />
           </Routes>
