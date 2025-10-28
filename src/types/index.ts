@@ -46,6 +46,7 @@ export interface Conteudo {
   titulo: string;
   descricao: string;
   formatoOriginal: string;
+  conteudoOriginal?: string | null;
   conteudoAdaptado: string | null;
   conteudoAdaptadoTipo: string | null;
   dataPublicacao: Date;

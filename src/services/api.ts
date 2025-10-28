@@ -2,6 +2,7 @@ import type {
   Curso,
   CursoPayload,
   Conteudo,
+  ConteudoPayload,
   Avaliacao,
   AvaliacaoPayload,
   Resultado,
@@ -15,7 +16,6 @@ import type {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
 
-// Helper para converter datas ISO 8601 em Date
 const DATE_FIELDS = new Set([
   'createdAt',
   'updatedAt',
@@ -60,7 +60,6 @@ const parseDates = <T>(payload: T): T => {
   return convert(payload) as T;
 };
 
-// Client HTTP centralizado com interceptor
 class ApiClient {
   private baseURL: string;
 
@@ -81,7 +80,6 @@ class ApiClient {
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
-    // Tratamento de erros 401/403 - redireciona para login
     if (response.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -99,13 +97,12 @@ class ApiClient {
         const errorData: ApiError = await response.json();
         errorMessage = errorData.message || errorMessage;
 
-        // Tratamento de erros de validacao (422)
         if (response.status === 422 && errorData.errors) {
           const validationErrors = Object.values(errorData.errors).flat().join(', ');
           errorMessage = `Erro de validacao: ${validationErrors}`;
         }
       } catch {
-        // Se nao conseguir parsear o JSON, usa mensagem padrao
+        
         errorMessage = `Erro ${response.status}: ${response.statusText}`;
       }
 
@@ -157,10 +154,13 @@ class ApiClient {
   }
 
   async put<T>(endpoint: string, body: any): Promise<T> {
+    const isForm = body instanceof FormData;
     const response = await fetch(`${this.baseURL}${endpoint}`, {
       method: 'PUT',
-      headers: this.getHeaders(),
-      body: JSON.stringify(body),
+      headers: this.getHeaders({ isForm }),
+      ...(body !== undefined && {
+        body: isForm ? body : JSON.stringify(body),
+      }),
     });
     return this.handleResponse<T>(response);
   }
@@ -176,7 +176,6 @@ class ApiClient {
 
 const client = new ApiClient(API_BASE_URL);
 
-// API de Autenticacao
 export const authApi = {
   async login(email: string, senha: string): Promise<LoginResponse> {
     return client.post<LoginResponse>('/api/auth/login', { email, senha });
@@ -191,7 +190,6 @@ export const authApi = {
   },
 };
 
-// API de Cursos
 export const cursosApi = {
   async getAll(): Promise<Curso[]> {
     return client.get<Curso[]>('/api/cursos');
@@ -201,7 +199,10 @@ export const cursosApi = {
     return client.get<Curso>(`/api/cursos/${id}`);
   },
 
-  async create(data: CursoPayload): Promise<Curso> {
+  async create(data: FormData | CursoPayload): Promise<Curso> {
+    if (data instanceof FormData) {
+      return client.post<Curso>('/api/cursos', data);
+    }
     return client.post<Curso>('/api/cursos', data);
   },
 
@@ -214,7 +215,6 @@ export const cursosApi = {
   },
 };
 
-// API de Conteudos
 export const conteudosApi = {
   async getByCurso(cursoId: string): Promise<Conteudo[]> {
     return client.get<Conteudo[]>(`/api/cursos/${cursoId}/conteudos`);
@@ -227,9 +227,16 @@ export const conteudosApi = {
   async create(cursoId: string, data: FormData): Promise<Conteudo> {
     return client.post<Conteudo>(`/api/cursos/${cursoId}/conteudos`, data);
   },
+
+  async update(cursoId: string, conteudoId: string, data: FormData | ConteudoPayload): Promise<Conteudo> {
+    return client.put<Conteudo>(`/api/cursos/${cursoId}/conteudos/${conteudoId}`, data);
+  },
+
+  async remove(cursoId: string, conteudoId: string): Promise<void> {
+    return client.delete<void>(`/api/cursos/${cursoId}/conteudos/${conteudoId}`);
+  },
 };
 
-// API de Avaliacoes
 export const avaliacoesApi = {
   async getByCurso(cursoId: string): Promise<Avaliacao[]> {
     return client.get<Avaliacao[]>(`/api/cursos/${cursoId}/avaliacoes`);
@@ -238,16 +245,22 @@ export const avaliacoesApi = {
   async create(cursoId: string, data: AvaliacaoPayload): Promise<Avaliacao> {
     return client.post<Avaliacao>(`/api/cursos/${cursoId}/avaliacoes`, data);
   },
+
+  async update(cursoId: string, avaliacaoId: string, data: AvaliacaoPayload): Promise<Avaliacao> {
+    return client.put<Avaliacao>(`/api/cursos/${cursoId}/avaliacoes/${avaliacaoId}`, data);
+  },
+
+  async remove(cursoId: string, avaliacaoId: string): Promise<void> {
+    return client.delete<void>(`/api/cursos/${cursoId}/avaliacoes/${avaliacaoId}`);
+  },
 };
 
-// API de Resultados
 export const resultadosApi = {
   async getMinhasNotas(): Promise<Resultado[]> {
     return client.get<Resultado[]>('/api/resultados/minhas-notas');
   },
 
   async lancarNota(avaliacaoId: string, data: ResultadoPayload): Promise<Resultado> {
-    // Validacao: notaObtida deve estar presente
     if (!data.notaObtida && data.notaObtida !== 0) {
       throw new Error('A nota obtida e obrigatoria');
     }
@@ -263,14 +276,12 @@ export const resultadosApi = {
   },
 };
 
-// API de Dashboard
 export const dashboardApi = {
   async getResumo(): Promise<DashboardResumo> {
     return client.get<DashboardResumo>('/api/dashboard/resumo');
   },
 };
 
-// Exportacao legada para compatibilidade (sera removida gradualmente)
 export const api = {
   getCursos: cursosApi.getAll,
   getCurso: cursosApi.getById,
@@ -280,8 +291,12 @@ export const api = {
   getConteudos: conteudosApi.getByCurso,
   getConteudo: conteudosApi.getById,
   createConteudo: conteudosApi.create,
+  updateConteudo: conteudosApi.update,
+  deleteConteudo: conteudosApi.remove,
   getAvaliacoes: avaliacoesApi.getByCurso,
   createAvaliacao: avaliacoesApi.create,
+  updateAvaliacao: avaliacoesApi.update,
+  deleteAvaliacao: avaliacoesApi.remove,
   getMinhasNotas: resultadosApi.getMinhasNotas,
   lancarNota: (avaliacaoId: string, alunoId: number, notaObtida: number) =>
     resultadosApi.lancarNota(avaliacaoId, { alunoId, notaObtida }),
