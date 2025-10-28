@@ -9,10 +9,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { api, conteudosApi, avaliacoesApi } from '@/services/api';
-import type { Avaliacao, Conteudo, Curso } from '@/types';
+import { api, conteudosApi, avaliacoesApi, resultadosApi } from '@/services/api';
+import type { Avaliacao, Conteudo, Curso, Resultado } from '@/types';
 import { toast } from 'sonner';
-import { Calendar, Users, BookOpen, FileText, CheckCircle, ListOrdered, Upload, X } from 'lucide-react';
+import {
+  Calendar,
+  Users,
+  BookOpen,
+  FileText,
+  CheckCircle,
+  ListOrdered,
+  Upload,
+  X,
+  Pencil,
+  Trash2,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react';
 
 const formatosDisponiveis = [
   { value: 'pdf', label: 'PDF' },
@@ -44,12 +57,17 @@ const CourseDetail = () => {
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
   const [isLoadingCurso, setIsLoadingCurso] = useState(true);
   const [isMatriculado, setIsMatriculado] = useState(false);
+  const [minhasNotas, setMinhasNotas] = useState<Resultado[]>([]);
+  const [isLoadingNotas, setIsLoadingNotas] = useState(false);
 
   const [formConteudo, setFormConteudo] = useState({
     titulo: '',
     descricao: '',
     formatoOriginal: 'pdf',
     conteudo: '',
+    arquivoUrl: '',
+    arquivoNome: '',
+    arquivoTipo: '',
   });
   const [conteudoArquivo, setConteudoArquivo] = useState<File | null>(null);
   const arquivoInputRef = useRef<HTMLInputElement | null>(null);
@@ -60,6 +78,152 @@ const CourseDetail = () => {
   });
   const [isSavingConteudo, setIsSavingConteudo] = useState(false);
   const [isSavingAvaliacao, setIsSavingAvaliacao] = useState(false);
+  const [editingConteudoId, setEditingConteudoId] = useState<number | null>(null);
+  const [editingAvaliacaoId, setEditingAvaliacaoId] = useState<number | null>(null);
+
+  const formatDateForInput = (date: Date) => {
+    const pad = (value: number) => value.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  const handleEditarConteudo = (conteudo: Conteudo) => {
+    setEditingConteudoId(conteudo.id);
+    setFormConteudo({
+      titulo: conteudo.titulo,
+      descricao: conteudo.descricao,
+      formatoOriginal: conteudo.formatoOriginal?.toLowerCase() ?? 'text',
+      conteudo:
+        conteudo.conteudoOriginal ??
+        (conteudo.conteudoAdaptadoTipo === 'TEXT' ? conteudo.conteudoAdaptado ?? '' : ''),
+      arquivoUrl: conteudo.arquivoUrl ?? '',
+      arquivoNome: conteudo.arquivoNome ?? '',
+      arquivoTipo: conteudo.arquivoTipo ?? '',
+    });
+    setConteudoArquivo(null);
+    if (arquivoInputRef.current) {
+      arquivoInputRef.current.value = '';
+    }
+  };
+
+  const handleCancelarEdicaoConteudo = () => {
+    resetConteudoForm();
+  };
+
+  const handleExcluirConteudo = async (conteudoId: number) => {
+    if (!id) return;
+    const confirmar = window.confirm('Deseja realmente excluir este conteudo?');
+    if (!confirmar) return;
+
+    try {
+      await conteudosApi.remove(id, conteudoId.toString());
+      setConteudos((prev) => prev.filter((item) => item.id !== conteudoId));
+      if (editingConteudoId === conteudoId) {
+        resetConteudoForm();
+      }
+      toast.success('Conteudo removido!');
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Nao foi possivel remover o conteudo.';
+      toast.error(message);
+    }
+  };
+
+  const handleEditarAvaliacao = (avaliacao: Avaliacao) => {
+    setEditingAvaliacaoId(avaliacao.id);
+    setFormAvaliacao({
+      tipoAvaliacao: avaliacao.tipoAvaliacao,
+      notaMaxima: avaliacao.notaMaxima.toString(),
+      dataLimite: formatDateForInput(avaliacao.dataLimite),
+    });
+  };
+
+  const handleCancelarEdicaoAvaliacao = () => {
+    resetAvaliacaoForm();
+  };
+
+  const handleRealizarAvaliacao = (avaliacao: Avaliacao) => {
+    if (!avaliacao) return;
+    const prazo =
+      avaliacao.dataLimite instanceof Date && !Number.isNaN(avaliacao.dataLimite.getTime())
+        ? avaliacao.dataLimite.toLocaleString()
+        : 'sem data limite definida';
+    toast.info(
+      `Procure o professor para realizar "${avaliacao.tipoAvaliacao}" até ${prazo}.`,
+    );
+  };
+
+  const handleExcluirAvaliacao = async (avaliacaoId: number) => {
+    if (!id) return;
+    const confirmar = window.confirm('Deseja realmente excluir esta avaliacao?');
+    if (!confirmar) return;
+
+    try {
+      await avaliacoesApi.remove(id, avaliacaoId.toString());
+      setAvaliacoes((prev) => prev.filter((item) => item.id !== avaliacaoId));
+      if (editingAvaliacaoId === avaliacaoId) {
+        resetAvaliacaoForm();
+      }
+      toast.success('Avaliacao removida!');
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Nao foi possivel remover a avaliacao.';
+      toast.error(message);
+    }
+  };
+
+  const resetConteudoForm = () => {
+    setFormConteudo({
+      titulo: '',
+      descricao: '',
+      formatoOriginal: 'pdf',
+      conteudo: '',
+      arquivoUrl: '',
+      arquivoNome: '',
+      arquivoTipo: '',
+    });
+    setConteudoArquivo(null);
+    if (arquivoInputRef.current) {
+      arquivoInputRef.current.value = '';
+    }
+    setEditingConteudoId(null);
+  };
+
+  const resetAvaliacaoForm = () => {
+    setFormAvaliacao({
+      tipoAvaliacao: '',
+      notaMaxima: '',
+      dataLimite: '',
+    });
+    setEditingAvaliacaoId(null);
+  };
+
+  const formattedConteudos = useMemo(
+    () =>
+      conteudos.map((conteudo) => {
+        const formato = conteudo.formatoOriginal?.toLowerCase();
+        let label = 'Texto';
+        if (formato === 'pdf') {
+          label = 'PDF';
+        } else if (formato === 'ppt' || formato === 'pptx') {
+          label = 'Apresentacao';
+        } else if (formato === 'mp4' || formato === 'video' || formato === 'link') {
+          label = 'Video';
+        } else if (formato === 'text') {
+          label = 'Texto';
+        } else if (formato && ['png', 'jpg', 'jpeg', 'gif', 'image'].includes(formato)) {
+          label = 'Imagem';
+        } else if (formato && formato !== '') {
+          label = formato.toUpperCase();
+        } else if (conteudo.conteudoAdaptadoTipo) {
+          label = conteudo.conteudoAdaptadoTipo;
+        }
+        return {
+          ...conteudo,
+          formatoLabel: label,
+        };
+      }),
+    [conteudos],
+  );
 
   useEffect(() => {
     if (!id) {
@@ -69,6 +233,19 @@ const CourseDetail = () => {
     void loadConteudos(id);
     void loadAvaliacoes(id);
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !user || (user.tipo !== 'aluno')) {
+      return;
+    }
+    setIsLoadingNotas(true);
+    resultadosApi
+      .getMinhasNotas()
+      .then(setMinhasNotas)
+      .catch(() => {
+      })
+      .finally(() => setIsLoadingNotas(false));
+  }, [id, user]);
 
   const loadCurso = async (cursoId: string) => {
     setIsLoadingCurso(true);
@@ -131,15 +308,15 @@ const CourseDetail = () => {
 
     const arquivo = conteudoArquivo;
     const linkOuTexto = formConteudo.conteudo.trim();
+    const isEditing = editingConteudoId !== null;
+    const possuiArquivoExistente = isEditing && !!formConteudo.arquivoUrl;
 
-    if (!arquivo && !linkOuTexto) {
+    if (!arquivo && !linkOuTexto && !possuiArquivoExistente) {
       toast.error('Envie um arquivo ou informe um link/conteudo.');
       return;
     }
 
     let formato = formConteudo.formatoOriginal || 'text';
-    let arquivoNome: string | null = null;
-    let arquivoTipo: string | null = null;
 
     if (arquivo) {
       const extensao = extrairExtensao(arquivo.name);
@@ -148,21 +325,38 @@ const CourseDetail = () => {
         return;
       }
       formato = extensao;
-      arquivoNome = arquivo.name;
-      arquivoTipo = arquivo.type;
     }
 
     setIsSavingConteudo(true);
     try {
       const conteudoTexto = linkOuTexto || null;
       const ehUrl = linkOuTexto ? /^https?:\/\//i.test(linkOuTexto) : false;
+
+      let arquivoNome = formConteudo.arquivoNome?.trim() || null;
+      let arquivoTipo = formConteudo.arquivoTipo?.trim() || null;
+      let arquivoUrl = formConteudo.arquivoUrl?.trim() || null;
+
+      if (arquivo) {
+        arquivoNome = arquivo.name;
+        arquivoTipo = arquivo.type;
+        arquivoUrl = null;
+      } else if (ehUrl) {
+        arquivoNome = null;
+        arquivoTipo = null;
+        arquivoUrl = linkOuTexto;
+      } else if (!possuiArquivoExistente) {
+        arquivoNome = null;
+        arquivoTipo = null;
+        arquivoUrl = null;
+      }
+
       const dados = {
         cursoId: Number(id),
         titulo: formConteudo.titulo.trim(),
         descricao: formConteudo.descricao.trim(),
         formatoOriginal: formato,
         conteudo: conteudoTexto,
-        arquivoUrl: !arquivo && ehUrl ? linkOuTexto : null,
+        arquivoUrl,
         arquivoNome: arquivoNome ?? undefined,
         arquivoTipo: arquivoTipo ?? undefined,
       };
@@ -173,19 +367,28 @@ const CourseDetail = () => {
         formData.append('arquivo', arquivo);
       }
 
-      const criado = await conteudosApi.create(id, formData);
-      setConteudos((prev) => [criado, ...prev]);
-      toast.success('Conteudo adicionado!');
-      setFormConteudo({
-        titulo: '',
-        descricao: '',
-        formatoOriginal: 'pdf',
-        conteudo: '',
-      });
-      setConteudoArquivo(null);
+      let resposta: Conteudo;
+      if (isEditing && editingConteudoId !== null) {
+        resposta = await conteudosApi.update(id, editingConteudoId.toString(), formData);
+      } else {
+        resposta = await conteudosApi.create(id, formData);
+      }
+
+      setConteudos((prev) =>
+        isEditing
+          ? prev.map((item) => (item.id === resposta.id ? resposta : item))
+          : [resposta, ...prev],
+      );
+
+      toast.success(isEditing ? 'Conteudo atualizado!' : 'Conteudo adicionado!');
+      resetConteudoForm();
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : 'Nao foi possivel adicionar o conteudo.';
+        error instanceof Error
+          ? error.message
+          : isEditing
+            ? 'Nao foi possivel atualizar o conteudo.'
+            : 'Nao foi possivel adicionar o conteudo.';
       toast.error(message);
     } finally {
       setIsSavingConteudo(false);
@@ -212,17 +415,27 @@ const CourseDetail = () => {
           ? new Date(formAvaliacao.dataLimite).toISOString()
           : new Date().toISOString(),
       };
-      const criada = await avaliacoesApi.create(id, payload);
-      setAvaliacoes((prev) => [criada, ...prev]);
-      toast.success('Avaliacao criada!');
-      setFormAvaliacao({
-        tipoAvaliacao: '',
-        notaMaxima: '',
-        dataLimite: '',
-      });
+
+      const isEditing = editingAvaliacaoId !== null;
+      const resposta = isEditing && editingAvaliacaoId !== null
+        ? await avaliacoesApi.update(id, editingAvaliacaoId.toString(), payload)
+        : await avaliacoesApi.create(id, payload);
+
+      setAvaliacoes((prev) =>
+        isEditing
+          ? prev.map((item) => (item.id === resposta.id ? resposta : item))
+          : [resposta, ...prev],
+      );
+
+      toast.success(isEditing ? 'Avaliacao atualizada!' : 'Avaliacao criada!');
+      resetAvaliacaoForm();
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : 'Nao foi possivel criar a avaliacao.';
+        error instanceof Error
+          ? error.message
+          : editingAvaliacaoId !== null
+            ? 'Nao foi possivel atualizar a avaliacao.'
+            : 'Nao foi possivel criar a avaliacao.';
       toast.error(message);
     } finally {
       setIsSavingAvaliacao(false);
@@ -260,34 +473,10 @@ const CourseDetail = () => {
 
   const hasConteudos = conteudos.length > 0;
   const hasAvaliacoes = avaliacoes.length > 0;
-
-  const formattedConteudos = useMemo(
-    () =>
-      conteudos.map((conteudo) => {
-        const formato = conteudo.formatoOriginal?.toLowerCase();
-        let label = 'Texto';
-        if (formato === 'pdf') {
-          label = 'PDF';
-        } else if (formato === 'ppt' || formato === 'pptx') {
-          label = 'Apresentacao';
-        } else if (formato === 'mp4' || formato === 'video' || formato === 'link') {
-          label = 'Video';
-        } else if (formato === 'text') {
-          label = 'Texto';
-        } else if (formato && ['png', 'jpg', 'jpeg', 'gif', 'image'].includes(formato)) {
-          label = 'Imagem';
-        } else if (formato && formato !== '') {
-          label = formato.toUpperCase();
-        } else if (conteudo.conteudoAdaptadoTipo) {
-          label = conteudo.conteudoAdaptadoTipo;
-        }
-        return {
-          ...conteudo,
-          formatoLabel: label,
-        };
-      }),
-    [conteudos],
-  );
+  const isEditingConteudo = editingConteudoId !== null;
+  const isEditingAvaliacao = editingAvaliacaoId !== null;
+  const arquivoAtualNome = conteudoArquivo?.name ?? formConteudo.arquivoNome;
+  const possuiArquivoAtual = Boolean(arquivoAtualNome);
 
   return (
     <div className="min-h-screen bg-background">
@@ -337,7 +526,13 @@ const CourseDetail = () => {
             {isProfessor && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Adicionar conteudo</CardTitle>
+                  <CardTitle>{isEditingConteudo ? 'Editar conteudo' : 'Adicionar conteudo'}</CardTitle>
+                  {isEditingConteudo && (
+                    <CardDescription>
+                      Voce esta editando um conteudo existente. Salve para aplicar as alteracoes ou
+                      cancele para descartar.
+                    </CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent>
                     <form className="space-y-4" onSubmit={handleSalvarConteudo}>
@@ -414,14 +609,17 @@ const CourseDetail = () => {
                             setFormConteudo((prev) => ({
                               ...prev,
                               formatoOriginal: extensao,
+                              arquivoNome: file.name,
+                              arquivoTipo: file.type,
+                              arquivoUrl: '',
                             }));
                           }}
                         />
-                        {conteudoArquivo && (
+                        {possuiArquivoAtual && (
                           <div className="flex items-center justify-between rounded bg-muted px-3 py-2 text-xs">
                             <span className="flex items-center gap-2">
                               <Upload className="h-3 w-3" />
-                              {conteudoArquivo.name}
+                              {arquivoAtualNome}
                             </span>
                             <button
                               type="button"
@@ -432,7 +630,13 @@ const CourseDetail = () => {
                                   arquivoInputRef.current.value = '';
                                 }
                                 setConteudoArquivo(null);
-                                setFormConteudo((prev) => ({ ...prev, formatoOriginal: 'pdf' }));
+                                setFormConteudo((prev) => ({
+                                  ...prev,
+                                  formatoOriginal: 'pdf',
+                                  arquivoNome: '',
+                                  arquivoTipo: '',
+                                  arquivoUrl: '',
+                                }));
                               }}
                             >
                               <X className="h-3 w-3" />
@@ -459,9 +663,23 @@ const CourseDetail = () => {
                           Informe um link valido ou texto complementar. Obrigatorio caso nao envie um arquivo.
                         </p>
                       </div>
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
+                        {isEditingConteudo && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleCancelarEdicaoConteudo}
+                            disabled={isSavingConteudo}
+                          >
+                            Cancelar
+                          </Button>
+                        )}
                         <Button type="submit" disabled={isSavingConteudo}>
-                          {isSavingConteudo ? 'Salvando...' : 'Adicionar conteudo'}
+                          {isSavingConteudo
+                            ? 'Salvando...'
+                            : isEditingConteudo
+                              ? 'Atualizar conteudo'
+                              : 'Adicionar conteudo'}
                         </Button>
                       </div>
                     </form>
@@ -486,7 +704,30 @@ const CourseDetail = () => {
                             </CardDescription>
                           </div>
                         </div>
-                        <CheckCircle className="h-5 w-5 text-muted-foreground" />
+                        {isProfessor ? (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1"
+                              onClick={() => handleEditarConteudo(conteudo)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="gap-1"
+                              onClick={() => handleExcluirConteudo(conteudo.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Excluir
+                            </Button>
+                          </div>
+                        ) : (
+                          <CheckCircle className="h-5 w-5 text-muted-foreground" />
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-2">
@@ -530,7 +771,12 @@ const CourseDetail = () => {
             {isProfessor && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Nova avaliacao</CardTitle>
+                  <CardTitle>{isEditingAvaliacao ? 'Editar avaliacao' : 'Nova avaliacao'}</CardTitle>
+                  {isEditingAvaliacao && (
+                    <CardDescription>
+                      Atualize os dados da avaliacao selecionada ou cancele para manter as informacoes atuais.
+                    </CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSalvarAvaliacao}>
@@ -580,9 +826,23 @@ const CourseDetail = () => {
                         }
                       />
                     </div>
-                    <div className="md:col-span-2 flex justify-end">
+                    <div className="md:col-span-2 flex justify-end gap-2">
+                      {isEditingAvaliacao && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleCancelarEdicaoAvaliacao}
+                          disabled={isSavingAvaliacao}
+                        >
+                          Cancelar
+                        </Button>
+                      )}
                       <Button type="submit" disabled={isSavingAvaliacao}>
-                        {isSavingAvaliacao ? 'Salvando...' : 'Publicar avaliacao'}
+                        {isSavingAvaliacao
+                          ? 'Salvando...'
+                          : isEditingAvaliacao
+                            ? 'Atualizar avaliacao'
+                            : 'Publicar avaliacao'}
                       </Button>
                     </div>
                   </form>
@@ -592,17 +852,65 @@ const CourseDetail = () => {
 
             {hasAvaliacoes ? (
               <div className="space-y-4">
-                {avaliacoes.map((avaliacao) => (
-                  <Card key={avaliacao.id}>
-                    <CardHeader>
-                      <CardTitle className="text-lg">{avaliacao.tipoAvaliacao}</CardTitle>
-                      <CardDescription>
-                        Nota maxima: {avaliacao.notaMaxima} | Prazo:{' '}
-                        {avaliacao.dataLimite.toLocaleDateString()}
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
-                ))}
+                {avaliacoes.map((avaliacao) => {
+                  const resultado = minhasNotas.find((nota) => nota.avaliacaoId === avaliacao.id);
+                  const concluida = !!resultado;
+                  return (
+                    <Card key={avaliacao.id}>
+                      <CardHeader className="flex flex-row items-start justify-between gap-4">
+                        <div>
+                          <CardTitle className="text-lg">{avaliacao.tipoAvaliacao}</CardTitle>
+                          <CardDescription>
+                            Nota maxima: {avaliacao.notaMaxima} | Prazo:{' '}
+                            {avaliacao.dataLimite.toLocaleDateString()}
+                          </CardDescription>
+                        </div>
+                        {isProfessor ? (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1"
+                              onClick={() => handleEditarAvaliacao(avaliacao)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="gap-1"
+                              onClick={() => handleExcluirAvaliacao(avaliacao.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Excluir
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant={concluida ? 'outline' : 'default'}
+                            size="sm"
+                            className={`gap-2 ${concluida ? 'border-green-500 text-green-600 hover:bg-green-50' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
+                            disabled={concluida || isLoadingNotas}
+                            onClick={() => handleRealizarAvaliacao(avaliacao)}
+                          >
+                            {concluida ? (
+                              <>
+                                <CheckCircle2 className="h-4 w-4" />
+                                Realizada
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="h-4 w-4" />
+                                Realizar avaliacao
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </CardHeader>
+                    </Card>
+                  );
+                })}
               </div>
             ) : (
               <Card>
@@ -636,3 +944,4 @@ const CourseDetail = () => {
 };
 
 export default CourseDetail;
+

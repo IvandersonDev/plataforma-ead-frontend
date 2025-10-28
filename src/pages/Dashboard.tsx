@@ -26,7 +26,6 @@ const Dashboard = () => {
     if (isProfessor) {
       loadResumo();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProfessor]);
 
   const loadCursos = async () => {
@@ -110,7 +109,7 @@ const Dashboard = () => {
             </Button>
           </div>
         )}
-
+        
         <div>
           <h2 className="text-2xl font-bold mb-6">
             {isProfessor ? 'Meus Cursos' : 'Cursos Disponiveis'}
@@ -122,16 +121,16 @@ const Dashboard = () => {
             </div>
           ) : cursos.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <CardContent className="py-12 text-center space-y-4">
+                <BookOpen className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
                 <CardDescription>
                   {isProfessor
-                    ? 'Voce ainda nao criou nenhum curso. Comece criando seu primeiro curso!'
+                    ? 'Voce ainda nao criou nenhum curso. Utilize o botao acima para cadastrar o primeiro.'
                     : 'Voce ainda nao esta matriculado em nenhum curso. Explore o catalogo!'}
                 </CardDescription>
-                <Button className="mt-4" onClick={() => navigate('/')}>
-                  {isProfessor ? 'Criar Curso' : 'Explorar Cursos'}
-                </Button>
+                {!isProfessor && (
+                  <Button onClick={() => navigate('/')}>Explorar Cursos</Button>
+                )}
               </CardContent>
             </Card>
           ) : (

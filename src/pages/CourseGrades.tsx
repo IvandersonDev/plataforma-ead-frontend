@@ -78,7 +78,6 @@ const CourseGrades = () => {
       });
       toast.success('Nota registrada com sucesso!');
       setNotaObtida('');
-      // Recarregar resumo para refletir alteração
       const atualizado = await resultadosApi.getByCurso(id);
       setResumo(atualizado);
     } catch (error: unknown) {
