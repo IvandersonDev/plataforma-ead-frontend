@@ -1,7 +1,7 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { GraduationCap, LogOut, LayoutDashboard } from 'lucide-react';
+﻿import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { GraduationCap, LogOut, LayoutDashboard } from "lucide-react";
 
 export const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -9,7 +9,7 @@ export const Navbar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate("/");
   };
 
   return (
@@ -31,18 +31,22 @@ export const Navbar = () => {
                   Dashboard
                 </Button>
               </Link>
-              {user?.tipo === 'aluno' && (
+              {user?.tipo === "aluno" && (
                 <Link to="/minhas-notas">
-                  <Button variant="ghost" size="sm">Minhas notas</Button>
+                  <Button variant="ghost" size="sm">
+                    Minhas notas
+                  </Button>
                 </Link>
               )}
-              {(user?.tipo === 'professor' || user?.tipo === 'admin') && (
+              {(user?.tipo === "professor" || user?.tipo === "admin") && (
                 <Link to="/cursos/novo">
-                  <Button variant="ghost" size="sm">Novo curso</Button>
+                  <Button variant="ghost" size="sm">
+                    Novo curso
+                  </Button>
                 </Link>
               )}
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Ola,</span>
+                <span className="text-muted-foreground">Olá,</span>
                 <span className="font-medium">{user?.nome}</span>
               </div>
               <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
@@ -53,7 +57,9 @@ export const Navbar = () => {
           ) : (
             <>
               <Link to="/login">
-                <Button variant="ghost" size="sm">Login</Button>
+                <Button variant="ghost" size="sm">
+                  Login
+                </Button>
               </Link>
               <Link to="/registro">
                 <Button size="sm">Cadastre-se</Button>

@@ -31,6 +31,7 @@ export interface Curso {
   imagemUrl?: string | null;
   professor: Usuario;
   dataCriacao: Date;
+  matriculado?: boolean;
 }
 
 export interface CursoPayload {
@@ -72,6 +73,7 @@ export interface Avaliacao {
   tipoAvaliacao: string;
   notaMaxima: number;
   dataLimite: Date;
+  perguntas?: AvaliacaoPergunta[];
 }
 
 export interface AvaliacaoPayload {
@@ -79,22 +81,45 @@ export interface AvaliacaoPayload {
   tipoAvaliacao: string;
   notaMaxima: number;
   dataLimite: string;
+  perguntas?: AvaliacaoPerguntaPayload[];
+}
+
+export interface AvaliacaoPergunta {
+  id: number;
+  enunciado: string;
+  peso: number;
+}
+
+export interface AvaliacaoPerguntaPayload {
+  enunciado: string;
+  peso: number;
 }
 
 export interface Resultado {
   id: number;
   avaliacaoId: number;
   aluno: Usuario;
-  notaObtida: number;
+  notaObtida: number | null;
   notaMaxima: number;
   tipoAvaliacao: string;
   cursoId: number;
   cursoTitulo: string;
+  realizado: boolean;
+  anexoNome?: string | null;
+  anexoTipo?: string | null;
+  anexoUrl?: string | null;
 }
 
 export interface ResultadoPayload {
   alunoId: number;
   notaObtida: number;
+}
+
+export interface RealizacaoPayload {
+  respostas?: Array<{
+    perguntaId: number;
+    resposta: string;
+  }>;
 }
 
 export interface ProfessorNotasResponse {
@@ -109,6 +134,14 @@ export interface ProfessorNotasResponse {
       tipoAvaliacao: string;
       notaObtida: number | null;
       notaMaxima: number;
+      realizado: boolean;
+      anexoNome?: string | null;
+      anexoUrl?: string | null;
+      respostas?: Array<{
+        perguntaId: number;
+        enunciado: string;
+        resposta: string;
+      }>;
     }>;
   }>;
 }

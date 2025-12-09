@@ -8,8 +8,16 @@ interface CourseCardProps {
   descricao: string;
   professorNome?: string;
   dataCriacao?: Date;
+  imagemUrl?: string | null;
   onSelect: (id: number) => void;
 }
+
+const resolveImagemUrl = (url?: string | null) => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+  return `${base}${url.startsWith('/') ? url : `/${url}`}`;
+};
 
 export const CourseCard = ({
   id,
@@ -17,11 +25,13 @@ export const CourseCard = ({
   descricao,
   professorNome,
   dataCriacao,
+  imagemUrl,
   onSelect,
 }: CourseCardProps) => {
   const dataCriacaoLabel = dataCriacao
     ? dataCriacao.toLocaleDateString()
     : undefined;
+  const capa = resolveImagemUrl(imagemUrl);
 
   const handleClick = () => onSelect(id);
 
@@ -31,9 +41,20 @@ export const CourseCard = ({
       onClick={handleClick}
     >
       <CardHeader>
-        <div className="w-full h-40 bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg mb-4 flex items-center justify-center">
-          <BookOpen className="h-16 w-16 text-primary" />
-        </div>
+        {capa ? (
+          <div className="w-full h-40 rounded-lg mb-4 overflow-hidden bg-muted">
+            <img
+              src={capa}
+              alt={`Capa do curso ${titulo}`}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          <div className="w-full h-40 bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg mb-4 flex items-center justify-center">
+            <BookOpen className="h-16 w-16 text-primary" />
+          </div>
+        )}
         <CardTitle className="line-clamp-2">{titulo}</CardTitle>
         <CardDescription className="line-clamp-3">{descricao}</CardDescription>
       </CardHeader>

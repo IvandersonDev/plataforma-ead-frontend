@@ -5,6 +5,7 @@ import type {
   ConteudoPayload,
   Avaliacao,
   AvaliacaoPayload,
+  RealizacaoPayload,
   Resultado,
   ResultadoPayload,
   DashboardResumo,
@@ -80,54 +81,75 @@ class ApiClient {
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
-    if (response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
-      throw new Error('Sessao expirada. Faca login novamente.');
+    const isAuthEndpoint =
+      response.url.includes('/api/auth/login') || response.url.includes('/api/auth/register');
+
+    const contentType = response.headers.get('content-type');
+    const isJson = contentType?.toLowerCase().includes('application/json');
+    const text = response.status === 204 || response.status === 205 ? '' : await response.text();
+
+    let parsedBody: any = null;
+    if (text) {
+      if (isJson) {
+        try {
+          parsedBody = JSON.parse(text);
+        } catch {
+          parsedBody = null;
+        }
+      } else {
+        parsedBody = text;
+      }
     }
+
+    if (response.status === 401) {
+      const message =
+        (parsedBody && typeof parsedBody === 'object' && 'message' in parsedBody && parsedBody.message) ||
+        'Credenciais invalidas';
+
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+      throw new Error(typeof message === 'string' ? message : 'Credenciais invalidas');
+    }
+
     if (response.status === 403) {
-      throw new Error('Voce nao possui permissao para realizar esta operacao.');
+      const message =
+        (parsedBody && typeof parsedBody === 'object' && 'message' in parsedBody && parsedBody.message) ||
+        'Você não possui permissão para realizar esta operação.';
+      throw new Error(typeof message === 'string' ? message : 'Você não possui permissão para realizar esta operação.');
     }
 
     if (!response.ok) {
-      let errorMessage = 'Erro na requisicao';
+      let errorMessage = (parsedBody && parsedBody.message) || 'Erro na requisicao';
 
       try {
-        const errorData: ApiError = await response.json();
-        errorMessage = errorData.message || errorMessage;
+        const errorData: ApiError = parsedBody as ApiError;
+        errorMessage = errorData?.message || errorMessage;
 
-        if (response.status === 422 && errorData.errors) {
+        if (response.status === 422 && errorData?.errors) {
           const validationErrors = Object.values(errorData.errors).flat().join(', ');
           errorMessage = `Erro de validacao: ${validationErrors}`;
         }
       } catch {
-        
         errorMessage = `Erro ${response.status}: ${response.statusText}`;
       }
 
       throw new Error(errorMessage);
     }
 
-    if (response.status === 204 || response.status === 205) {
-      return undefined as T;
-    }
-
-    const text = await response.text();
-
     if (!text) {
       return undefined as T;
     }
 
-    const contentType = response.headers.get('content-type');
-
-    if (contentType && !contentType.toLowerCase().includes('application/json')) {
+    if (!isJson) {
       return text as unknown as T;
     }
 
     try {
-      const data = JSON.parse(text);
-      return parseDates(data);
+      const data = parsedBody ?? JSON.parse(text);
+      return parseDates(data as T);
     } catch {
       throw new Error('Erro ao interpretar resposta do servidor.');
     }
@@ -273,6 +295,10 @@ export const resultadosApi = {
 
   async getByCurso(cursoId: string): Promise<ProfessorNotasResponse> {
     return client.get<ProfessorNotasResponse>(`/api/resultados/cursos/${cursoId}`);
+  },
+
+  async registrarRealizacao(avaliacaoId: string, data: RealizacaoPayload | FormData): Promise<Resultado> {
+    return client.post<Resultado>(`/api/resultados/avaliacoes/${avaliacaoId}/realizacao`, data);
   },
 };
 

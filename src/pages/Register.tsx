@@ -1,21 +1,22 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
-import { GraduationCap, X } from 'lucide-react';
+﻿import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { GraduationCap, X, Eye, EyeOff } from "lucide-react";
 
 export default function Register() {
-  const [tipo, setTipo] = useState<'aluno' | 'professor'>('aluno');
-  const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
-  const [anexoTexto, setAnexoTexto] = useState('');
+  const [tipo, setTipo] = useState<"aluno" | "professor">("aluno");
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [anexoTexto, setAnexoTexto] = useState("");
   const [anexoArquivo, setAnexoArquivo] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
@@ -25,17 +26,17 @@ export default function Register() {
     e.preventDefault();
 
     if (!nome || !email || !senha) {
-      toast.error('Preencha todos os campos obrigatorios');
+      toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
     if (senha.length < 6) {
-      toast.error('A senha deve ter no minimo 6 caracteres');
+      toast.error("A senha deve ter no mínimo 6 caracteres");
       return;
     }
 
-    if (tipo === 'professor' && !anexoArquivo && !anexoTexto.trim()) {
-      toast.error('Professores devem anexar o comprovante (PDF) ou informar URL/descricao.');
+    if (tipo === "professor" && !anexoArquivo && !anexoTexto.trim()) {
+      toast.error("Professores devem anexar o comprovante (PDF) ou informar URL/descrição.");
       return;
     }
 
@@ -49,10 +50,10 @@ export default function Register() {
         anexo: anexoTexto.trim() || null,
         anexoFile: anexoArquivo,
       });
-      toast.success('Cadastro realizado com sucesso!');
-      navigate('/dashboard');
+      toast.success("Cadastro realizado com sucesso!");
+      navigate("/dashboard");
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao cadastrar');
+      toast.error(error.message || "Erro ao cadastrar");
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +70,7 @@ export default function Register() {
           <CardDescription>Escolha seu perfil e comece a aprender</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={tipo} onValueChange={(v) => setTipo(v as 'aluno' | 'professor')}>
+          <Tabs value={tipo} onValueChange={(v) => setTipo(v as "aluno" | "professor")}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="aluno">Aluno</TabsTrigger>
               <TabsTrigger value="professor">Professor</TabsTrigger>
@@ -102,14 +103,25 @@ export default function Register() {
 
               <div className="space-y-2">
                 <Label htmlFor="senha">Senha</Label>
-                <Input
-                  id="senha"
-                  type="password"
-                  placeholder="Minimo 6 caracteres"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="senha"
+                    type={mostrarSenha ? "text" : "password"}
+                    placeholder="Mínimo 6 caracteres"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    required
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground"
+                    aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                    onClick={() => setMostrarSenha((prev) => !prev)}
+                  >
+                    {mostrarSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <TabsContent value="professor" className="mt-0 space-y-4">
@@ -121,9 +133,9 @@ export default function Register() {
                     accept="application/pdf"
                     onChange={(event) => {
                       const file = event.target.files?.[0] ?? null;
-                      if (file && file.type !== 'application/pdf') {
-                        toast.error('Envie apenas arquivos PDF.');
-                        event.target.value = '';
+                      if (file && file.type !== "application/pdf") {
+                        toast.error("Envie apenas arquivos PDF.");
+                        event.target.value = "";
                         setAnexoArquivo(null);
                         return;
                       }
@@ -146,29 +158,28 @@ export default function Register() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="anexoTexto">URL ou descricao do comprovante</Label>
+                  <Label htmlFor="anexoTexto">URL ou descrição do comprovante</Label>
                   <Textarea
                     id="anexoTexto"
-                    placeholder="Ex: https://drive.google.com/... ou uma breve descricao do documento"
+                    placeholder="Ex: https://drive.google.com/... ou uma breve descrição do documento"
                     value={anexoTexto}
                     onChange={(e) => setAnexoTexto(e.target.value)}
                     rows={3}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Informe a URL do documento ou descreva sua experiencia. Caso tenha anexado o PDF, este campo e
-                    opcional.
+                    Informe a URL do documento ou descreva sua experiência. Caso tenha anexado o PDF, este campo é opcional.
                   </p>
                 </div>
               </TabsContent>
 
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Cadastrando...' : 'Cadastrar'}
+                {isLoading ? "Cadastrando..." : "Cadastrar"}
               </Button>
             </form>
           </Tabs>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Ja tem uma conta? </span>
+            <span className="text-muted-foreground">Já tem uma conta? </span>
             <Link to="/login" className="text-primary hover:underline">
               Fazer login
             </Link>

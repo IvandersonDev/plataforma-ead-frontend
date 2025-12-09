@@ -1,0 +1,26 @@
+.docx-preview {
+  color: #1f2937;
+  background: #f9fafb;
+}
+
+.docx-preview .docx {
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.docx-preview p {
+  margin: 0 0 0.5em 0;
+}
+
+.docx-preview table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.docx-preview table td,
+.docx-preview table th {
+  border: 1px solid #e5e7eb;
+  padding: 4px 6px;
+}

@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { resultadosApi } from '@/services/api';
-import type { Resultado } from '@/types';
-import { Navbar } from '@/components/Navbar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+﻿import { useEffect, useState } from "react";
+import { resultadosApi } from "@/services/api";
+import type { Resultado } from "@/types";
+import { Navbar } from "@/components/Navbar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 const MinhasNotas = () => {
   const [notas, setNotas] = useState<Resultado[]>([]);
@@ -17,7 +17,7 @@ const MinhasNotas = () => {
         setNotas(data);
       } catch (error: unknown) {
         const message =
-          error instanceof Error ? error.message : 'Nao foi possivel carregar as notas.';
+          error instanceof Error ? error.message : "Não foi possível carregar as notas.";
         toast.error(message);
       } finally {
         setIsLoading(false);
@@ -34,7 +34,7 @@ const MinhasNotas = () => {
         <div>
           <h1 className="text-3xl font-bold">Minhas notas</h1>
           <p className="text-muted-foreground">
-            Acompanhe o desempenho em cada avaliacao dos seus cursos.
+            Acompanhe o desempenho em cada avaliação dos seus cursos.
           </p>
         </div>
 
@@ -56,11 +56,11 @@ const MinhasNotas = () => {
                   <div>
                     <CardTitle className="text-xl">{nota.cursoTitulo}</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Avaliacao: {nota.tipoAvaliacao}
+                      Avaliação: {nota.tipoAvaliacao}
                     </p>
                   </div>
                   <Badge variant="secondary">
-                    {nota.notaObtida} / {nota.notaMaxima}
+                    {nota.notaObtida ?? "-"} / {nota.notaMaxima}
                   </Badge>
                 </CardHeader>
               </Card>

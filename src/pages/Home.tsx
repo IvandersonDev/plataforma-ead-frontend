@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Navbar } from '@/components/Navbar';
-import { CourseCard } from '@/components/CourseCard';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
-import { api } from '@/services/api';
-import { BookOpen, Users, Award } from 'lucide-react';
-import { toast } from 'sonner';
-import type { Curso } from '@/types';
+﻿import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Navbar } from "@/components/Navbar";
+import { CourseCard } from "@/components/CourseCard";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/services/api";
+import { BookOpen, Users, Award } from "lucide-react";
+import { toast } from "sonner";
+import type { Curso } from "@/types";
 
 export default function Home() {
   const [cursos, setCursos] = useState<Curso[]>([]);
@@ -24,7 +24,7 @@ export default function Home() {
       const data = await api.getCursos();
       setCursos(data);
     } catch (error) {
-      toast.error('Erro ao carregar cursos');
+      toast.error("Erro ao carregar cursos");
     } finally {
       setIsLoading(false);
     }
@@ -42,18 +42,18 @@ export default function Home() {
               Aprenda sem Limites
             </h1>
             <p className="text-xl text-muted-foreground mb-8">
-              Plataforma completa de educacao online com os melhores cursos e professores
+              Plataforma completa de educação online com os melhores cursos e professores.
             </p>
             {isAuthenticated ? (
-              <Button size="lg" onClick={() => navigate('/dashboard')}>
+              <Button size="lg" onClick={() => navigate("/dashboard")}>
                 Ir para o dashboard
               </Button>
             ) : (
               <div className="flex gap-4 justify-center">
-                <Button size="lg" onClick={() => navigate('/registro')}>
+                <Button size="lg" onClick={() => navigate("/registro")}>
                   Comece agora
                 </Button>
-                <Button size="lg" variant="outline" onClick={() => navigate('/login')}>
+                <Button size="lg" variant="outline" onClick={() => navigate("/login")}>
                   Fazer login
                 </Button>
               </div>
@@ -70,7 +70,7 @@ export default function Home() {
                 <BookOpen className="h-8 w-8 text-primary" />
               </div>
               <h3 className="text-3xl font-bold mb-2">500+</h3>
-              <p className="text-muted-foreground">Cursos disponiveis</p>
+              <p className="text-muted-foreground">Cursos disponíveis</p>
             </div>
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-secondary/10 mb-4">
@@ -84,7 +84,7 @@ export default function Home() {
                 <Award className="h-8 w-8 text-accent" />
               </div>
               <h3 className="text-3xl font-bold mb-2">95%</h3>
-              <p className="text-muted-foreground">Taxa de satisfacao</p>
+              <p className="text-muted-foreground">Taxa de satisfação</p>
             </div>
           </div>
         </div>
@@ -93,9 +93,9 @@ export default function Home() {
       <section className="py-16 px-4">
         <div className="container mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4">Catalogo de cursos</h2>
+            <h2 className="text-4xl font-bold mb-4">Catálogo de cursos</h2>
             <p className="text-xl text-muted-foreground">
-              Explore nossa selecao de cursos de alta qualidade
+              Explore nossa seleção de cursos de alta qualidade
             </p>
           </div>
 
@@ -105,7 +105,7 @@ export default function Home() {
             </div>
           ) : cursos.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">Nenhum curso disponivel no momento</p>
+              <p className="text-muted-foreground">Nenhum curso disponível no momento</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -115,6 +115,7 @@ export default function Home() {
                   id={curso.id}
                   titulo={curso.titulo}
                   descricao={curso.descricao}
+                  imagemUrl={curso.imagemUrl}
                   professorNome={curso.professor?.nome}
                   dataCriacao={curso.dataCriacao}
                   onSelect={(cursoId) => navigate(`/curso/${cursoId}`)}
